@@ -1,0 +1,32 @@
+function expval = get_expected_value(V, K, guess, pi, p)
+
+expval = zeros(p.Nz,p.Nk,p.NA,p.NK);
+    
+for toK = 1:p.NK
+    for fromA = 1:p.NA
+        T_z = pi.z(:,:,fromA); % pick transition matrix depending on aggregate state
+        expvalA = zeros(p.Nz,p.Nk); % is expected value of being in 'fromA' today
+
+        for toA = 1:p.NA
+            expvalz = T_z * V(:,:,toA,toK);
+            expvalA = expvalA + pi.A(fromA,toA) * expvalz;
+        end
+
+        expval(:,:,fromA,toK) = expvalA;
+    end
+end
+% this is the expected value of being in state (z,A) conditional 
+% on going to (k',K') --> ie (z,k',A,K'). Use coefficients from regressing K' 
+% on K and interpolate. Loop over all A,K to find K' and then
+% interpolate in (z,k,A,:).
+helper = permute(expval, [4 1 2 3]); % move K into 1st dim for interp1 --> (K',z,k,A)
+result = zeros(size(helper));
+for fromK = 1:p.NK
+    for fromA = 1:p.NA
+        interpolK = min(max(guess.Kprime(fromA, fromK), K(1)), K(end));
+        result(fromK,:,:,fromA) = interp1(K, helper(:,:,:,fromA), interpolK, 'linear');
+    end
+end
+expval = permute(result, [2 3 4 1]); % move K back to 4th dim - this is
+% the expectation of being in (z,A,K) conditional on going to k' -->
+% (z,k',A,K)

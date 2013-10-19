@@ -1,0 +1,180 @@
+#LyX file created by tex2lyx 2.0.6dev
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\begin_preamble
+%2multibyte Version: 5.50.0.2953 CodePage: 1252
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\setcounter{MaxMatrixCols}{10}
+%TCIDATA{OutputFilter=LATEX.DLL}
+%TCIDATA{Version=5.50.0.2953}
+%TCIDATA{Codepage=1252}
+%TCIDATA{<META NAME="SaveForMode" CONTENT="1">}
+%TCIDATA{BibliographyScheme=Manual}
+%TCIDATA{Created=Wednesday, October 17, 2012 19:22:09}
+%TCIDATA{LastRevised=Sunday, November 11, 2012 22:23:28}
+%TCIDATA{<META NAME="GraphicsSave" CONTENT="32">}
+%TCIDATA{<META NAME="DocumentShell" CONTENT="Standard LaTeX\Blank - Standard LaTeX Article">}
+%TCIDATA{CSTFile=40 LaTeX article.cst}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{acknowledgement}[theorem]{Acknowledgement}
+\newtheorem{algorithm}[theorem]{Algorithm}
+\newtheorem{axiom}[theorem]{Axiom}
+\newtheorem{case}[theorem]{Case}
+\newtheorem{claim}[theorem]{Claim}
+\newtheorem{conclusion}[theorem]{Conclusion}
+\newtheorem{condition}[theorem]{Condition}
+\newtheorem{conjecture}[theorem]{Conjecture}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{criterion}[theorem]{Criterion}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{exercise}[theorem]{Exercise}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{notation}[theorem]{Notation}
+\newtheorem{problem}[theorem]{Problem}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{solution}[theorem]{Solution}
+\newtheorem{summary}[theorem]{Summary}
+\newenvironment{proof}[1][Proof]{\noindent\textbf{#1.} }{\ \rule{0.5em}{0.5em}}
+\input{tcilatex}
+
+\end_preamble
+\use_default_options false
+\language english
+\language_package none
+\inputencoding auto
+\fontencoding default
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+\graphics default
+\default_output_format default
+\output_sync 0
+\paperfontsize default
+\spacing single
+\use_hyperref 0
+\papersize default
+\use_geometry false
+\use_amsmath 2
+\use_esint 1
+\use_mhchem 0
+\use_mathdots 0
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 0
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+
+Household BC: 
+\begin_inset Formula \begin{equation*}
+C_{t}=\pi _{F,t}+\pi _{I,t}+w_{t}
+\end{equation*}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+Intermediate firm profits:
+\begin_inset Formula \begin{equation*}
+\pi _{I,t}^{\omega }=y_{t}^{\omega }p_{t}^{\omega }-wn^{\omega }-q^{\omega }
+\end{equation*}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+Final goods sector:
+\begin_inset Formula \begin{equation*}
+\pi _{F,t}=\left( \int_{\omega }\left( y^{\omega }\right) ^{\frac{\sigma -1}{\sigma }}\text{d}\omega \right) ^{\frac{\sigma }{\sigma -1}}-\int_{\omega
+}y^{\omega }p^{\omega }\text{d}\omega 
+\end{equation*}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+
+\begin_inset VSpace bigskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+Demand side: consumption plus investment = Supply side: Production
+\begin_inset Formula \begin{eqnarray*}
+C_{t}+\int_{\omega }q^{\omega }\text{d}\omega  &=&\left( \int_{\omega
+}\left( y^{\omega }\right) ^{\frac{\sigma -1}{\sigma }}\text{d}\omega
+\right) ^{\frac{\sigma }{\sigma -1}} \\
+\pi _{I,t}+w_{t}+\int_{\omega }q^{\omega }\text{d}\omega  &=&\left(
+\int_{\omega }\left( y^{\omega }\right) ^{\frac{\sigma -1}{\sigma }}\text{d}\omega \right) ^{\frac{\sigma }{\sigma -1}}
+\end{eqnarray*}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+Labor market: 
+\begin_inset Formula \begin{equation*}
+1=\int_{\omega }n^{\omega }\text{d}\omega 
+\end{equation*}
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+profits in Hh budget:
+\begin_inset Formula \begin{equation*}
+C_{t}=\left( \int_{\omega }\left( y^{\omega }\right) ^{\frac{\sigma -1}{\sigma }}\text{d}\omega \right) ^{\frac{\sigma }{\sigma -1}}-q^{\omega }
+\end{equation*}
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

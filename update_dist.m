@@ -1,4 +1,9 @@
-function MuNew = update_dist(Mu, pi, pol, Astate, Kt_ind_hi, Kt_ind_lo, weight_hi)
+function MuNew = update_dist(Mu, pi, pol, agg_state)
+
+Astate = agg_state(1);
+Kt_ind_lo = agg_state(2);
+Kt_ind_hi = agg_state(3);
+weight_hi = agg_state(4);
 
 pol_fl = floor(pol);
 pol_ce = ceil(pol);

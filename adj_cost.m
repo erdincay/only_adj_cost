@@ -8,7 +8,7 @@ p.delta = 0.16; % depreciation
 p.alpha = 0.33; % production function: y = k^alpha*(zAl)^(1-alpha)
 p.rho_A = 0.9; % persistence in A
 p.sig_A = 0.03; % stddev in shocks to A
-p.gA = 0.08; % growth rate in A (use to ensure eventual adjustment)
+p.gA = 0.01; % growth rate in A (use to ensure eventual adjustment)
 p.rho_z = 0.7; % persistence in z
 p.sig_z = 0.4; % stddev in shocks to z
 p.sigma = 2; % elasticity of substitution between goods
@@ -52,7 +52,6 @@ end
 z = exp(z(1,:));
 [pi.z, ~, ~] = TAUCHEN_Bloom(p.Nz, z(1), z(end), p.NA, p.sig_z * Unc, p.rho_z, 2, 0, 1);
 
-
 % construct vector of aggregate shocks:
 Astate = aggregate_shocks(pi, p, flags);
 
@@ -70,13 +69,12 @@ kgrid = repmat(k, [p.Nz 1 p.NA p.NK]);
 Agrid = repmat(permute(A, [1 3 2]), [p.Nz p.Nk 1 p.NK]);
 
 % Initial values for coefficients
-coeffs = zeros(p.NA + 1, 5); N_coeff = 5; % K, C, P, I, w
+coeffs = zeros(p.NA + 1, 4); N_coeff = 5; % K, C, P, I, w
 coefftol_hist = zeros(1,10);
 coeffs(1:p.NA,1) = noA.K_agg; % agg_K;
 coeffs(1:p.NA,2) = noA.C_agg; % C;
-coeffs(1:p.NA,3) = 1; % P;
-coeffs(1:p.NA,4) = noA.I_agg; % I;
-coeffs(1:p.NA,5) = noA.wguess; % w;
+coeffs(1:p.NA,3) = noA.I_agg; % I;
+coeffs(1:p.NA,4) = noA.wguess; % w;
 
 % R_old = zeros(p.NA,p.NK) + 1 / p.beta;
 % R_flag = 1;
@@ -95,33 +93,14 @@ kgrid = repmat(k, [p.Nz 1 p.NA p.NK]);
 
 % get guesses from coefficients
 % guess = guess_agg_vars_from_coeffs(p, coeffs, K, pi);
-for iA = 1:p.NA
-    X_reg = [zeros(p.NK, p.NA) log(K')];
-    X_reg(:,iA) = 1;
-    Y_hat = X_reg * coeffs;
-    guess.Kprime(iA,:) = Y_hat(:,1)';
-    guess.C(iA,:) = Y_hat(:,2)';
-    guess.I(iA,:) = Y_hat(:,4)';
-    guess.w(iA,:) = Y_hat(:,5)';
-end
+Y_hat = guess_from_coeffs(coeffs, K, p);
+guess.Kprime = reshape(Y_hat(:,1), [p.NK, p.NA])';
+guess.C = reshape(Y_hat(:,2), [p.NK, p.NA])';
+guess.I = reshape(Y_hat(:,3), [p.NK, p.NA])';
+guess.w = reshape(Y_hat(:,4), [p.NK, p.NA])';
 
 % R = zeros(p.NA, p.NK);
 mu_C = guess.C .^ (-p.psi); % marginal utility of consumption
-expmU = zeros(p.NA, p.NK); % set up expected marginal utility
-for iA = 1:p.NA
-    for iK = 1:p.NK
-        futureC = interp1(K, permute(guess.C, [2 1]), guess.Kprime(iA,iK),'linear', 'extrap')';
-        expmU(iA,iK) = pi.A(iA,:) * (futureC .^ (-p.psi));
-        R(iA,iK) = mu_C(iA,iK) / (p.beta * expmU(iA,iK));
-    end
-end
-% if R_flag % && coefftol < 0.1
-%     R_tol = max(abs(R(:) - R_old(:)))
-%     R = alpha_R * R + (1 - alpha_R) * R_old
-% else
-%     R = R_old;
-% end
-% R_flag = 0;
 if coeffct == 0
     P_mu = mu_C;
 elseif coefftol < 0.2
@@ -208,124 +187,49 @@ disp(['Vfn done, Vct= ', num2str(Vct)])
 % start with uniform distribution over states (z,k)
 Mu = ones(p.Nz,p.Nk); Mu = Mu/sum(Mu(:));
 
-% make list to keep track of aggregate variables
-aggVars = zeros(p.T,4); % columns: K, C, I, w
-labordemand = zeros(p.T,1);
-num_adjusters = zeros(p.T,1);
-highest_k = zeros(p.T,1);% keep track of the highest observed amount of 
-% capital held. If it is maxk too frequently, agents are likely to be 
-% constrained by the choice of the grid --> need to change the grid
+agg_req.prod = prod;
+agg_req.inv_adj = investment_adj;
+agg_req.profit = profit;
 
-rev_prod = zeros(p.T,1);
-Mu_hist = zeros(p.Nz, p.Nk, p.T);
+agg_opt.price = price;
+agg_opt.rev_prod = zgrid .* Agrid;
+agg_opt.labordemand = labor;
+agg_opt.num_adjusters = pol_act;
 
-for t = 1:p.T
-    % compute aggregate variables
-    K_t = sum(Mu) * k'; % aggregate capital
-    Kt_ind = find(K > K_t, 1, 'first'); % index of agg. capital in K
-    if isempty(Kt_ind)
-        Kt_ind = length(K)+1;
-    end
-    aggVars(t,1) = K_t;
-    
-    Kt_ind_hi = min(Kt_ind, length(K));
-    Kt_ind_lo = max(1, Kt_ind-1);
-    if Kt_ind_hi > Kt_ind_lo
-        weight_hi = (K_t - K(Kt_ind_lo)) / (K(Kt_ind_hi) - K(Kt_ind_lo)) ; 
-    else
-        weight_hi = 1;
-    end
-    % is the weight on the upper of the two grid points in K that Kt falls 
-    % in between of. 
-    
-    % Production Y
-    prod_dist = (1 - weight_hi) * prod(:,:,Astate(t),Kt_ind_lo) + ...
-        weight_hi * prod(:,:,Astate(t),Kt_ind_hi);
-    Y_t = (sum( (prod_dist(:).^ p.sigexp) .* Mu(:) )) ^ (1/p.sigexp);
-    
-    % Investment and adjustment cost
-    inv_adj_dist = (1 - weight_hi) * investment_adj(:,:,Astate(t),Kt_ind_lo) + ...
-        weight_hi * investment_adj(:,:,Astate(t),Kt_ind_hi);
-    Inv_t = sum( inv_adj_dist(:) .* Mu(:) ); % is gross investment plus
-    % adjustment cost: k' - (1-delta)k (+ phi if nec) 
-    
-    % Consumption C
-    C_t = Y_t - Inv_t;  
-    
-%     % Price index P - don't need if P=1 fixed
-    price_dist = (1 - weight_hi) * price(:,:,Astate(t),Kt_ind_lo) + ...
-        weight_hi * price(:,:,Astate(t),Kt_ind_hi);
-%     P_t = sum( (price_dist(:).^(1-p.sigma)).* Mu(:) ).^(1/(1-p.sigma));
-    P_t = 1;
-    
-    % expenditures for intermediates I
-    I_t = Y_t * P_t;
-    
-    % wage w
-    % agg wage bill (divided by 1 unit of labor) = agg income - agg profits
-    profit_dist = (1 - weight_hi) * profit(:,:,Astate(t),Kt_ind_lo) + ...
-        weight_hi * profit(:,:,Astate(t),Kt_ind_hi);
-    
-    profit_t = sum( profit_dist(:) .* Mu(:) ) - Inv_t;
-    
-    w_t = C_t - profit_t;
 
-    aggVars(t,1) = K_t;
-    aggVars(t,2) = C_t;
-    aggVars(t,3) = P_t;
-    aggVars(t,4) = I_t;
-    aggVars(t,5) = w_t;
-    
-    % revenue productivity: coefficient of variation
-    rev_prod_dist = price_dist .* zgrid(:,:,1,1) .* A(Astate(t));
-    [rev_histo, order] = sort(rev_prod_dist(:));    
-    rev_histo_weights = Mu(order);
-    rev_prod(t) = coeff_var(rev_histo, rev_histo_weights);
-    
-    % number of adjusters:
-    adj_dist = (1 - weight_hi) * pol_act(:,:,Astate(t),Kt_ind_lo) + ...
-        weight_hi * pol_act(:,:,Astate(t),Kt_ind_hi);
-    num_adjusters(t) = sum(adj_dist(:) .* Mu(:));
-  
-%     display(aggVars(t,:));
-    
-    % Labor demand
-    labordist = (1-weight_hi)*labor(:,:,Astate(t),Kt_ind_lo) +...
-        weight_hi * labor(:,:,Astate(t),Kt_ind_hi);
-    labordemand(t) = sum( labordist(:) .* Mu(:) )  ;
-    
-    % save Mu in history
-    Mu_hist(:,:,t) = Mu;
-    highest_k(t) = find(sum(Mu),1,'last');
-    
-    % update distribution
-    MuNew = update_dist(Mu, pi, pol, Astate(t), Kt_ind_hi, Kt_ind_lo, weight_hi);
-    
-    Mu = MuNew;
-end
+mu = ones(p.Nz, p.Nk);
+mu = mu ./ sum(mu(:));
+[agg_ts, final_mu] = KS_sim(mu,K,k,pi,pol,Astate,p.T,agg_req,agg_opt,p);
+
+aggVars = zeros(p.T,4);
+aggVars(:,1) = agg_ts.K;
+aggVars(:,2) = agg_ts.C;
+aggVars(:,3) = agg_ts.prod;
+aggVars(:,4) = agg_ts.w;
+
 
 % kill burn-in period:
 burn_in = 500;
 aggVars(1:burn_in,:) = []; % columns: K, C, I, w
-labordemand(1:burn_in,:) = [];
-rev_prod(1:burn_in) = [];
-num_adjusters(1:burn_in) = [];
-highest_k(1:burn_in,:) = [];
+agg_ts.labordemand(1:burn_in,:) = [];
+agg_ts.rev_prod(1:burn_in) = [];
+agg_ts.num_adjusters(1:burn_in) = [];
+agg_ts.highest_k(1:burn_in,:) = [];
 
 display(mean(aggVars));
 
 meanlabor = zeros(1,p.NA);
-for i = 1:p.NA
-    meanlabor(i) = mean(labordemand(Astate(burn_in+1:end-1)==i));
+for iA = 1:p.NA
+    meanlabor(iA) = mean(agg_ts.labordemand(Astate(burn_in+1:end-1)==iA));
 end
 mean_TFPRdisp = zeros(1,p.NA);
-for i = 1:p.NA
-    mean_TFPRdisp(i) = mean(rev_prod(Astate(burn_in+1:end-1)==i));
+for iA = 1:p.NA
+    mean_TFPRdisp(iA) = mean(agg_ts.rev_prod(Astate(burn_in+1:end-1)==iA));
 end
 
 toc
 disp('Time series of moments computed')
-disp(['Mean labor demand = ', num2str(meanlabor), ' highest k: ', num2str(max(highest_k))])
+disp(['Mean labor demand = ', num2str(meanlabor), ' highest k: ', num2str(max(agg_ts.highest_k))])
 
 % check if grid OK
 % if max(highest_k)==length(k)
@@ -351,36 +255,11 @@ clear Ymat
 % Y vectors:
 Ymat(:,1) = aggVars(2:end, 1); % is the vector of
 % aggregate capital in periods _following_ periods of state i
-Ymat(:,2) = aggVars(1:end-1, 2)';
-Ymat(:,3) = aggVars(1:end-1, 3)';
-Ymat(:,4) = aggVars(1:end-1, 4)';
-Ymat(:,5) = aggVars(1:end-1, 5)';
+Ymat(:,2:4) = aggVars(1:end-1, 2:4);
 
 beta_reg = (Xmat'*Xmat)\(Xmat'*Ymat);
 % beta_reg(end,3) = 0; % P = 1 fixed, independent of K
 newcoeffs(:,:) = beta_reg;
-
-% for i = 1:p.NA
-%     Xvec = aggVars(Astate(burn_in+1:end-1)==i, 1);
-%     Xmat = [ones(size(Xvec)) log(Xvec)]; % regressors: constant plus log(K)
-%     
-%     clear Ymat
-%     % Y vectors:
-%     Ymat(:,1) = aggVars(logical( [0 Astate(burn_in+1:end-1)==i] ) , 1)'; % is the vector of 
-%     % aggregate capital in periods _following_ periods of state i
-%     Ymat(:,2) = aggVars(Astate(burn_in+1:end-1)==i, 2)';
-%     Ymat(:,3) = aggVars(Astate(burn_in+1:end-1)==i, 3)';
-%     Ymat(:,4) = aggVars(Astate(burn_in+1:end-1)==i, 4)';
-%     Ymat(:,5) = aggVars(Astate(burn_in+1:end-1)==i, 5)';
-%     
-%     beta_reg = (Xmat'*Xmat)\(Xmat'*Ymat);
-%     newcoeffs(:,:,i) = beta_reg;
-%     
-%     % if P=1 fixed:
-%     newcoeffs(:,3,i) = [1 0]';
-%     
-% %     disp(corr(Xmat * beta_reg,Ymat))
-% end
 
 coefftol = max(abs(coeffs(:)-newcoeffs(:)))
 coeffct = coeffct + 1
@@ -408,11 +287,53 @@ end
 
 end
 
-mean_TFPRdisp = zeros(1,p.NA);
-for iA = 1:p.NA
-    mean_TFPRdisp(iA) = mean(rev_prod(Astate(burn_in+1:end)==iA));
-end
 mean_adjusters = zeros(1,p.NA);
 for iA = 1:p.NA
-    mean_adjusters(iA) = mean(num_adjusters(Astate(burn_in+1:end)==iA));
+    mean_adjusters(iA) = mean(agg_ts.num_adjusters(Astate(burn_in+1:end)==iA));
 end
+
+% IMPULSE RESPONSES!
+% set up initial distribution
+neutral_state = zeros(100,1) + 3;
+[neutral_agg, neutral_mu] = KS_sim(final_mu,K,k,pi,pol,neutral_state,100,agg_req,agg_opt,p);
+
+sim_dur = 20; % no. of periods to simulate following shock
+num_econs = 5000; % no. of economies to simulate
+response = zeros(sim_dur + 3, 4, num_econs); % K, inv_adj, 
+response(1:3, 1, :) = neutral_agg.K(end);
+response(1:3, 2, :) = neutral_agg.inv_adj(end);
+response(1:3, 3, :) = neutral_agg.C(end);
+response(1:3, 4, :) = neutral_agg.prod(end);
+
+Acdfs = cumsum(pi.A,2);
+sim_state = zeros(sim_dur, num_econs);
+sim_state(1,:) = 1;
+counter = 0;
+for ni = 1:num_econs
+    seed = ni; rng(seed);
+    sim_shocks = rand(sim_dur-1,1);
+    for t = 1:sim_dur-1
+        sim_state(t+1,ni) = find(sim_shocks(t) <= Acdfs(sim_state(t, ni),:), 1, 'first') ;
+    end
+    ind = find(sim_state(2:end, ni) >=3, 1, 'first');
+    sim_state(1+ind:end,ni) = 3;
+    
+    [eco_agg, ~] = KS_sim(neutral_mu,K,k,pi,pol,sim_state,sim_dur,agg_req,agg_opt,p);
+    response(4:end, 1, ni) = eco_agg.K;
+    response(4:end, 2, ni) = eco_agg.inv_adj;
+    response(4:end, 3, ni) = eco_agg.C;
+    response(4:end, 4, ni) = eco_agg.prod;
+    
+    % make cool looking counter
+    if ni >= (counter + 1) * num_econs / 20
+        fprintf('.')
+        counter = counter + 1;
+    end
+    
+end
+fprintf('\n')
+
+
+
+
+

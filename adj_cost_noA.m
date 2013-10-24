@@ -24,7 +24,7 @@ V = zeros(p.Nz, p.Nk);
 [pi.z, ~, ~] = TAUCHEN_Bloom(p.Nz, z(1), z(end), 1, p.sig_z, p.rho_z, 2, 0,1);
 Pguess = 1;
 Iguess = 1;
-wguess = 0.4;
+wguess = 0.5;
 
 while true % loop for maxk
 

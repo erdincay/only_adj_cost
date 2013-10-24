@@ -3,16 +3,16 @@ clc
 
 tic;
 % PARAMETERS
-p.beta = 0.98; % discount factor
-p.delta = 0.16; % depreciation
-p.alpha = 0.33; % production function: y = k^alpha*(zAl)^(1-alpha)
-p.rho_A = 0.9; % persistence in A
-p.sig_A = 0.03; % stddev in shocks to A
-p.gA = 0.01; % growth rate in A (use to ensure eventual adjustment)
-p.rho_z = 0.7; % persistence in z
-p.sig_z = 0.4; % stddev in shocks to z
-p.sigma = 2; % elasticity of substitution between goods
-p.phi = 0.01; % fixed adjustment cost (0 = frictionless)
+p.beta = 1.04 ^ (-1); % 0.95^0.25; % discount factor
+p.delta = 0.1; % depreciation
+p.alpha = 0.075; % production function: y = k^alpha*(zAl)^(1-alpha) - calibrate to wage share
+p.rho_A = 0.86; % persistence in A
+p.sig_A = 0.014; % 0.0058; % stddev in shocks to A
+p.gA = 0.1; % growth rate in A (use to ensure eventual adjustment)
+p.rho_z = 0.86; % persistence in z
+p.sig_z = 0.12; % 0.04 % stddev in shocks to z
+p.sigma = 3; % elasticity of substitution between goods
+p.phi = 0.01/3; % fixed adjustment cost (0 = frictionless)
 p.psi = 1.05; % CRRA coefficient on household utility
 
 p.sig_Unc = 0.3;
@@ -69,20 +69,22 @@ kgrid = repmat(k, [p.Nz 1 p.NA p.NK]);
 Agrid = repmat(permute(A, [1 3 2]), [p.Nz p.Nk 1 p.NK]);
 
 % Initial values for coefficients
-coeffs = zeros(p.NA + 1, 4); N_coeff = 5; % K, C, P, I, w
+coeffs = zeros(p.NA + 1, 4); % K, C, P, I, w
 coefftol_hist = zeros(1,10);
 coeffs(1:p.NA,1) = noA.K_agg; % agg_K;
 coeffs(1:p.NA,2) = noA.C_agg; % C;
 coeffs(1:p.NA,3) = noA.I_agg; % I;
 coeffs(1:p.NA,4) = noA.wguess; % w;
 
+% coeffs(coeffs>0) = log(coeffs(coeffs>0)); %%% LOG
+
 % R_old = zeros(p.NA,p.NK) + 1 / p.beta;
 % R_flag = 1;
 % alpha_R = 0.1;
 
 % Start coefficients loop
-coefftol = 1; coeffct = 0;
-while coefftol > 0.004 && coeffct < 90
+coefftol = 1; P_mu_tol = 1; coeffct = 0;
+while (coefftol > 0.001 || P_mu_tol > 0.001) && coeffct < 90
 
 % Set up grids relying on k
 k = mink:(maxk-mink)/(p.Nk):maxk; k(1)=[];
@@ -94,6 +96,7 @@ kgrid = repmat(k, [p.Nz 1 p.NA p.NK]);
 % get guesses from coefficients
 % guess = guess_agg_vars_from_coeffs(p, coeffs, K, pi);
 Y_hat = guess_from_coeffs(coeffs, K, p);
+% Y_hat = exp(guess_from_coeffs(coeffs, K, p)); %%% LOG
 guess.Kprime = reshape(Y_hat(:,1), [p.NK, p.NA])';
 guess.C = reshape(Y_hat(:,2), [p.NK, p.NA])';
 guess.I = reshape(Y_hat(:,3), [p.NK, p.NA])';
@@ -104,7 +107,8 @@ mu_C = guess.C .^ (-p.psi); % marginal utility of consumption
 if coeffct == 0
     P_mu = mu_C;
 elseif coefftol < 0.2
-    P_mu = 0.05 * mu_C + (1 - 0.05) * P_mu;
+    P_mu_adj = 0.15;
+    P_mu = P_mu_adj * mu_C + (1 - P_mu_adj) * P_mu;
     P_mu_tol = max(abs(P_mu(:) - mu_C(:)));
     display(P_mu_tol)
 end
@@ -185,8 +189,6 @@ disp(['Vfn done, Vct= ', num2str(Vct)])
 % now simulate the economy and esp the aggregate capital stock 
 
 % start with uniform distribution over states (z,k)
-Mu = ones(p.Nz,p.Nk); Mu = Mu/sum(Mu(:));
-
 agg_req.prod = prod;
 agg_req.inv_adj = investment_adj;
 agg_req.profit = profit;
@@ -226,6 +228,11 @@ mean_TFPRdisp = zeros(1,p.NA);
 for iA = 1:p.NA
     mean_TFPRdisp(iA) = mean(agg_ts.rev_prod(Astate(burn_in+1:end-1)==iA));
 end
+mean_adjusters = zeros(1,p.NA);
+for iA = 1:p.NA
+    mean_adjusters(iA) = mean(agg_ts.num_adjusters(Astate(burn_in+1:end)==iA));
+end
+display(mean_adjusters)
 
 toc
 disp('Time series of moments computed')
@@ -257,6 +264,8 @@ Ymat(:,1) = aggVars(2:end, 1); % is the vector of
 % aggregate capital in periods _following_ periods of state i
 Ymat(:,2:4) = aggVars(1:end-1, 2:4);
 
+% Ymat = log(Ymat); %%% LOG
+
 beta_reg = (Xmat'*Xmat)\(Xmat'*Ymat);
 % beta_reg(end,3) = 0; % P = 1 fixed, independent of K
 newcoeffs(:,:) = beta_reg;
@@ -266,8 +275,8 @@ coeffct = coeffct + 1
 if mod(coeffct, length(coefftol_hist)) == 0
     if mean(coefftol_hist(6:end)) > 0.95 * mean(coefftol_hist(1:5))
         p.alpha_adj = p.alpha_adj / 2;
-    else
-        p.alpha_adj = min(2 * p.alpha_adj, alpha_adj_init);
+%     else
+%         p.alpha_adj = min(2 * p.alpha_adj, alpha_adj_init);
     end
     display(p.alpha_adj)
     coefftol_hist = coefftol_hist * 0;
@@ -287,23 +296,18 @@ end
 
 end
 
-mean_adjusters = zeros(1,p.NA);
-for iA = 1:p.NA
-    mean_adjusters(iA) = mean(agg_ts.num_adjusters(Astate(burn_in+1:end)==iA));
-end
-
 % IMPULSE RESPONSES!
 % set up initial distribution
 neutral_state = zeros(100,1) + 3;
 [neutral_agg, neutral_mu] = KS_sim(final_mu,K,k,pi,pol,neutral_state,100,agg_req,agg_opt,p);
 
-sim_dur = 20; % no. of periods to simulate following shock
-num_econs = 5000; % no. of economies to simulate
-response = zeros(sim_dur + 3, 4, num_econs); % K, inv_adj, 
-response(1:3, 1, :) = neutral_agg.K(end);
-response(1:3, 2, :) = neutral_agg.inv_adj(end);
-response(1:3, 3, :) = neutral_agg.C(end);
-response(1:3, 4, :) = neutral_agg.prod(end);
+sim_dur = 50; % no. of periods to simulate following shock
+num_econs = 1000; % no. of economies to simulate
+response = zeros(sim_dur + 1, 4, num_econs); % K, inv_adj, 
+response(1, 1, :) = neutral_agg.K(end);
+response(1, 2, :) = neutral_agg.inv_adj(end);
+response(1, 3, :) = neutral_agg.C(end);
+response(1, 4, :) = neutral_agg.prod(end);
 
 Acdfs = cumsum(pi.A,2);
 sim_state = zeros(sim_dur, num_econs);
@@ -319,19 +323,30 @@ for ni = 1:num_econs
     sim_state(1+ind:end,ni) = 3;
     
     [eco_agg, ~] = KS_sim(neutral_mu,K,k,pi,pol,sim_state,sim_dur,agg_req,agg_opt,p);
-    response(4:end, 1, ni) = eco_agg.K;
-    response(4:end, 2, ni) = eco_agg.inv_adj;
-    response(4:end, 3, ni) = eco_agg.C;
-    response(4:end, 4, ni) = eco_agg.prod;
+    response(2:end, 1, ni) = eco_agg.K;
+    response(2:end, 2, ni) = eco_agg.inv_adj;
+    response(2:end, 3, ni) = eco_agg.C;
+    response(2:end, 4, ni) = eco_agg.prod;
     
     % make cool looking counter
     if ni >= (counter + 1) * num_econs / 20
         fprintf('.')
         counter = counter + 1;
     end
-    
 end
 fprintf('\n')
+
+close all
+for ii = 1:4
+    figure
+    if ii == 2 || ii == 3
+        plot( 0:5, [mean(response(1,ii,:), 3)' / mean(response(1,ii,:), 3), ...
+            mean(response(2:6,ii,:), 3)' / mean(response(1,ii,:), 3) * ...
+                mean(response(1,4,:), 3)' / mean(response(2,4,:), 3)] );
+    else
+        plot( 0:5, mean(response(1:6,ii,:), 3)' / mean(response(1,ii,:), 3) )
+    end
+end
 
 
 

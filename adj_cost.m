@@ -27,7 +27,7 @@ p.Nk = 80; p.maxk = 1.3; p.mink = 0; maxk = p.maxk; mink = p.mink; % grid capita
 p.NA = 5;
 p.Nz = 7;
 p.NK = 50; 
-p.K_range_lo = 0.92; p.K_range_hi = 1.12;
+p.K_range_lo = 0.85; p.K_range_hi = 1.08;
 maxK = p.K_range_hi*(maxk-mink); minK = p.K_range_lo*(maxk-mink);
 alpha_adj_init = 0.3;
 p.alpha_adj = alpha_adj_init; % weight on new coefficients
@@ -69,7 +69,7 @@ kgrid = repmat(k, [p.Nz 1 p.NA p.NK]);
 Agrid = repmat(permute(A, [1 3 2]), [p.Nz p.Nk 1 p.NK]);
 
 % Initial values for coefficients
-coeffs = zeros(p.NA + 1, 4); % K, C, P, I, w
+coeffs = zeros(2 * p.NA, 4); % K, C, P, I, w
 coefftol_hist = zeros(1,10);
 coeffs(1:p.NA,1) = noA.K_agg; % agg_K;
 coeffs(1:p.NA,2) = noA.C_agg; % C;
@@ -251,12 +251,12 @@ disp(['Mean labor demand = ', num2str(meanlabor), ' highest k: ', num2str(max(ag
 newcoeffs = zeros(size(coeffs));
 
 Areg = Astate(burn_in+1:end-1)';
-Xmat = zeros(p.T - burn_in-1, p.NA + 1);
+Xmat = zeros(p.T - burn_in - 1, 2 * p.NA);
 logKvec = log(aggVars(1:end-1,1));
 for iA = 1:p.NA
     Xmat(:,iA) = Areg == iA;
 end
-Xmat(:,end) = logKvec; % regressors: constant plus log(K)
+Xmat(:,p.NA+1:end) = repmat(logKvec, [1 p.NA]) .* Xmat(:,1:p.NA); % regressors: constant plus log(K)
 
 clear Ymat
 % Y vectors:
@@ -336,17 +336,45 @@ for ni = 1:num_econs
 end
 fprintf('\n')
 
+I_share = mean(response(1,2,:), 3) / mean(response(1,4,:), 3);
+I_share(1,2:6) = mean(response(2:6,2,:), 3) / mean(response(2,4,:), 3);
+I_share = I_share / I_share(1);
+
+C_share = mean(response(1,3,:), 3) / mean(response(1,4,:), 3);
+C_share(1,2:6) = mean(response(2:6,3,:), 3) / mean(response(2,4,:), 3);
+C_share = C_share / C_share(1);
+
+Y_share = [1, mean(response(2:6,4,:), 3)' / mean(response(2,4,:), 3)];
+
 close all
-for ii = 1:4
-    figure
-    if ii == 2 || ii == 3
-        plot( 0:5, [mean(response(1,ii,:), 3)' / mean(response(1,ii,:), 3), ...
-            mean(response(2:6,ii,:), 3)' / mean(response(1,ii,:), 3) * ...
-                mean(response(1,4,:), 3)' / mean(response(2,4,:), 3)] );
-    else
-        plot( 0:5, mean(response(1:6,ii,:), 3)' / mean(response(1,ii,:), 3) )
-    end
-end
+figure
+subplot(2,2,1);
+plot( 0:5, mean(response(1:6,1,:), 3)' / mean(response(1,1,:), 3) );
+title('Capital')
+
+subplot(2,2,2);
+plot( 0:5, I_share );
+title('Investment inc. adj costs')
+
+subplot(2,2,3);
+plot( 0:5, C_share );
+title('Consumption')
+
+subplot(2,2,4);
+plot( 0:5, Y_share );
+title('Output')
+
+
+% for ii = 1:4
+%     figure
+% %     if ii == 2 || ii == 3
+% %         plot( 0:5, [mean(response(1,ii,:), 3)' / mean(response(1,ii,:), 3), ...
+% %             mean(response(2:6,ii,:), 3)' / mean(response(1,ii,:), 3) * ...
+% %                 mean(response(1,4,:), 3)' / mean(response(2,4,:), 3)] );
+% %     else
+%         plot( 0:5, mean(response(1:6,ii,:), 3)' / mean(response(1,ii,:), 3) )
+% %     end
+% end
 
 
 

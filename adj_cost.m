@@ -14,9 +14,13 @@ p.sig_z = 0.12; % 0.04 % stddev in shocks to z
 p.sigma = 3; % elasticity of substitution between goods
 p.phi = 0.01/3; % fixed adjustment cost (0 = frictionless)
 p.psi = 1.05; % CRRA coefficient on household utility
+p.nu = 1; % exponent on idiosyncratic productivity in production function - in [(1-alpha+alpha*sigma) / (sigma-1), 1]
 
-p.sig_Unc = 0.3;
-p.sig_A = 0;
+params
+p.sig_z = 0.4;
+
+p.sig_Unc = 0; % 0.3;
+% p.sig_A = 0;
 
 p.sigexp = (p.sigma-1)/p.sigma;
 p.z_tauchen = 2;
@@ -123,8 +127,8 @@ P_mugrid = repmat(permute(P_mu, [3 4 1 2]), [p.Nz p.Nk 1 1]);
 denom = p.alpha*(p.sigma-1)+1;
 labor = ( ((p.sigma-1)/p.sigma*(1-p.alpha)./wgrid).^(p.sigma) .* (Igrid.*Pgrid.^(p.sigma-1)) .* ...
     kgrid.^(p.alpha*(p.sigma-1)) .* ...
-    (Agrid .* zgrid).^(p.sigma-1) ) .^ (1/denom);
-prod = Agrid .* zgrid .* (kgrid.^p.alpha) .* (labor.^(1-p.alpha));
+    (Agrid .* zgrid .^ p.nu).^(p.sigma-1) ) .^ (1/denom);
+prod = Agrid .* zgrid .^ p.nu .* (kgrid.^p.alpha) .* (labor.^(1-p.alpha));
 price = (Pgrid.^(p.sigma-1).*Igrid ./ prod).^(1/p.sigma);
 
 profit = prod.*price - labor.*wgrid;
@@ -194,7 +198,7 @@ agg_req.inv_adj = investment_adj;
 agg_req.profit = profit;
 
 agg_opt.price = price;
-agg_opt.rev_prod = zgrid .* Agrid;
+agg_opt.rev_prod = zgrid .^ p.nu .* Agrid;
 agg_opt.labordemand = labor;
 agg_opt.num_adjusters = pol_act;
 
